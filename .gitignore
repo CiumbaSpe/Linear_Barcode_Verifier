@@ -1,1 +1,7 @@
 codici-lineari-dati
+*pdf
+lbv_env 
+outputs/
+__pycache__/
+*.pyc
+*.txt
