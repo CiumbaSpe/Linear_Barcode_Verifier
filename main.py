@@ -1,6 +1,6 @@
 import csv
-from localizer import Localizer
-from preproc import Preproc
+from Localizer import Localizer
+from Preproc import Preproc
 from settings import *
 from Verifier import Verifier
 
