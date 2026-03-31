@@ -10,48 +10,13 @@ class Verifier:
     def __init__(self):
         pass
 
-    def verify_from_rect(self, rect, gray_image):
-       
-        # Rotate the original grayscale image according to the geometry
-        # estimated by the localizer, then extract the rectified ROI.
-        (center_x, center_y), (w, h), angle = rect
-        if w < h:
-            angle += 90
-
-        long_side = max(w, h)
-        short_side = min(w, h) - SHRINK
-
-        center = (center_x, center_y)
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(
-            gray_image,
-            M,
-            (gray_image.shape[1], gray_image.shape[0]),
-            borderValue=255,
-        )
-
-        # visualize_image(rotated)
-
-        # Get the rectified ROI from the rotated grayscale image.
-        x0 = int(max(0, center_x - long_side / 2))
-        x1 = int(min(gray_image.shape[1], center_x + long_side / 2))
-        y0 = int(max(0, center_y - short_side / 2))
-        y1 = int(min(gray_image.shape[0], center_y + short_side / 2))
-        roi = rotated[y0:y1, x0:x1]
-
-        visualize_image(roi)
-
-        # get the profile 
-        profile = roi[roi.shape[0]//2, :]
-
-        visualize_profile(profile)
+    def verify_profile(self, profile):
 
         # get contrast, in percentage
         profile_pct = profile.astype(np.float32).copy() * 100.0 / 255.0
         Rmin = np.min(profile_pct)
         Rmax = np.max(profile_pct)
         contrast = Rmax - Rmin
-        print(f"rmin: {Rmin}, rmax: {Rmax}, contrast: {contrast}")
 
         profile = profile.reshape(1, -1)
         t, profile = cv2.threshold(profile, 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -105,11 +70,9 @@ class Verifier:
                     edge_contrasts.append(Rs - Rb)
 
         min_edge_contrast = min(edge_contrasts)
-        print(f"contrast: {contrast}, min_edge_contrast: {min_edge_contrast}")
 
         # measures how strong the worst local edge is relative to the global contrast of the symbol
         modulation = 100 * min_edge_contrast / contrast
-        print(modulation)
 
         # remove noise 
         #runs = [(_, j, _, _) for (_, j, _, _) in runs if j > 2]
@@ -126,6 +89,53 @@ class Verifier:
 
         # print(thinner)
 
-        return roi
+        return contrast, modulation
+
+    def verify_from_rect(self, rect, gray_image):
+       
+        # Rotate the original grayscale image according to the geometry
+        # estimated by the localizer, then extract the rectified ROI.
+        (center_x, center_y), (w, h), angle = rect
+        if w < h:
+            angle += 90
+
+        long_side = max(w, h)
+        short_side = min(w, h) - SHRINK
+
+        center = (center_x, center_y)
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated = cv2.warpAffine(
+            gray_image,
+            M,
+            (gray_image.shape[1], gray_image.shape[0]),
+            borderValue=255,
+        )
+
+        # visualize_image(rotated)
+
+        # Get the rectified ROI from the rotated grayscale image.
+        x0 = int(max(0, center_x - long_side / 2))
+        x1 = int(min(gray_image.shape[1], center_x + long_side / 2))
+        y0 = int(max(0, center_y - short_side / 2))
+        y1 = int(min(gray_image.shape[0], center_y + short_side / 2))
+        roi = rotated[y0:y1, x0:x1]
+
+        # visualize_image(roi)
+
+        contrasts = []
+        modulations = []
+        ys = np.linspace(0, roi.shape[0] - 1, N_PROFILES, dtype=np.int32)
+
+        for y in ys:
+            # get the profile 
+            profile = roi[y, :]
+
+            # visualize_profile(profile)
+
+            contrast, modulation = self.verify_profile(profile)
+            contrasts.append(contrast)
+            modulations.append(modulation)
+
+        return float(np.mean(contrasts)), float(np.mean(modulations))
 
         
