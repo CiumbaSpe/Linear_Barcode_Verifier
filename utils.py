@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def visualize_patch_maps(
@@ -113,6 +114,20 @@ def visualize_best_cluster_mask(best_cluster_mask, scale=0.5):
     cv2.imshow("Best cluster mask", resized_mask)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+def visualize_image(image): 
+    cv2.imshow("Rotated image", image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+def visualize_profile(profile):
+    plt.figure(figsize=(12, 4))
+    plt.plot(profile, color="black")
+    plt.title("Central scanline intensity profile")
+    plt.xlabel("x")
+    plt.ylabel("intensity")
+    plt.grid(True)
+    plt.show()
 
 
 def visualize_best_cluster_bbox(image, box):

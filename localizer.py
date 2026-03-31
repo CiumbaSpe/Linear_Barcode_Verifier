@@ -10,8 +10,6 @@ class Localizer:
 
     def localize(self, image): 
 
-        print(image.shape)
-
         # First apply image derivative filter on the image
         # ksize=-1 use sharr method
         # CV_32F save in floating point 32
