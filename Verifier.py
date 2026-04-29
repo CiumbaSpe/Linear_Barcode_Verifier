@@ -1,9 +1,18 @@
+from dataclasses import dataclass
+
 import cv2
 from utils import visualize_image, visualize_profile
 from scipy import stats
 import numpy as np
 from settings import *
 
+
+@dataclass
+class Run:
+    value: int
+    length: int
+    start: int
+    end: int
 
 
 class Verifier:
@@ -12,18 +21,21 @@ class Verifier:
 
     def verify_profile(self, profile):
 
-        # get contrast, in percentage
+        ### --- CONTRAST METRIC ---
+        # Get contrast, in percentage
         profile_pct = profile.astype(np.float32).copy() * 100.0 / 255.0
         Rmin = np.min(profile_pct)
         Rmax = np.max(profile_pct)
         contrast = Rmax - Rmin
+        # --- end of the evaluation of contrast ---
 
+        # Treshold the profile in 0/1
         profile = profile.reshape(1, -1)
         t, profile = cv2.threshold(profile, 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         profile = profile.ravel()
 
-
-        # Compress in run lengths 0/1 
+        # Compress in run lengths 0/1 meaning (value, length, start, end) e.g. [Run(0, 3, 0, 4) Run(1, 5, 4, 6) ...]
+        # length is the number of equal value found starting from "start" and ending at "end"
         runs = []
         current_value = profile[0]
         current_length = 1
@@ -34,60 +46,90 @@ class Verifier:
             if value == current_value:
                 current_length += 1    
             else:
-                runs.append((current_value, current_length, start, end))
+                runs.append(Run(current_value, current_length, start, end))
                 current_value = value
                 current_length = 1
                 start = end
             end += 1
 
-        runs.append((current_value, current_length, start, end))
+        runs.append(Run(current_value, current_length, start, end))
 
-        # print(runs)
-        # print(len(profile))
-
-        # clean runs 
-        # (remove first and last)
+        # clean runs, there might be some noise 
+        # (the first and last lines might be cropped to much or inaccurate)
         runs.pop(0)
         runs.pop()
 
-        runs = [(value, start, end) for (value, j, start, end) in runs] 
+        # remove those run which lengths is less than 3 
+                
+        sorted_lengths = sorted([run.length for run in runs if run.length > 3])
+        
+        top_x = [(sorted_lengths[0], 1)]
+        mode = top_x[0]
+        i = 1
+        while len(top_x) < 3: 
+            
+            if sorted_lengths[i] != top_x[-1][0]:
+                top_x.append((sorted_lengths[i], 1))
+            else:
+                top_x[-1] = (top_x[-1][0], top_x[-1][1] + 1)
+                if(top_x[-1][1] >= mode[1]):
+                    mode = top_x[-1]
+
+            i += 1
+
+        x_dimension = mode[0]
+
+
+        runs = [run for run in runs if run.length > 0.5 * x_dimension]
+
+
+        # after the i removed the run i must merge back together runs
+        i = 0
+        while i < len(runs) -1:
+            current_run = runs[i]
+            next_run = runs[i + 1]
+
+            if (current_run.end != next_run.start):
+                # update lenght
+                current_run.length = next_run.end - current_run.start
+
+                # update the start and end (case value = value or multiple removal)
+                if(current_run.value == next_run.value):
+                    next_run.length = current_run.length
+                    next_run.start = current_run.start            
+                    runs.pop(i)
+                else: 
+                    current_run.end = next_run.start
+                
+
+            i += 1
+            
+
+
+        ### --- MODULATION METRIC ---
 
         edge_contrasts = []
         
-        for i in range(0, len(runs)):
-            if(i + 1 != len(runs)):
-                value1, start1, end1 = runs[i]
-                _, start2, end2 = runs[i + 1]
+        for i in range(0, len(runs) - 1):
+            current_run = runs[i]
+            next_run = runs[i + 1]
 
-                if (end1 == start2): # valid pair
-                    if (value1 == 0): # bar-space
-                        Rs = np.max(profile_pct[start2:end2])
-                        Rb = np.min(profile_pct[start1:end1])
-                    else: # space-bar
-                        Rs = np.max(profile_pct[start1:end1])
-                        Rb = np.min(profile_pct[start2:end2])
+            if (current_run.end == next_run.start): # valid pair
+                if (current_run.value == 0): # bar-space
+                    Rs = np.max(profile_pct[next_run.start:next_run.end])
+                    Rb = np.min(profile_pct[current_run.start:current_run.end])
+                else: # space-bar
+                    Rs = np.max(profile_pct[current_run.start:current_run.end])
+                    Rb = np.min(profile_pct[next_run.start:next_run.end])
 
-                    edge_contrasts.append(Rs - Rb)
+                edge_contrasts.append(Rs - Rb)
 
         min_edge_contrast = min(edge_contrasts)
 
         # measures how strong the worst local edge is relative to the global contrast of the symbol
         modulation = 100 * min_edge_contrast / contrast
 
-        # remove noise 
-        #runs = [(_, j, _, _) for (_, j, _, _) in runs if j > 2]
-
-
-        # # Estimate X-dimension
         
-        # sorted_length = sorted([length for (_, length) in runs])
-        # # take first fourth and take the mode
-        # k = max(3, len(sorted_length) // 4)
-        # thinner = stats.mode(sorted_length[:k]).mode
-
-        # # thinner = min(runs, key = lambda x: x[1])
-
-        # print(thinner)
 
         return contrast, modulation
 
@@ -102,6 +144,7 @@ class Verifier:
         long_side = max(w, h)
         short_side = min(w, h) - SHRINK
 
+        # rotate the image around the center of the rectangle evaluated by the localizer
         center = (center_x, center_y)
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
         rotated = cv2.warpAffine(
@@ -120,7 +163,7 @@ class Verifier:
         y1 = int(min(gray_image.shape[0], center_y + short_side / 2))
         roi = rotated[y0:y1, x0:x1]
 
-        # visualize_image(roi)
+        visualize_image(roi)
 
         contrasts = []
         modulations = []

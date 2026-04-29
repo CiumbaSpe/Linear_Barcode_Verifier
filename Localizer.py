@@ -50,7 +50,7 @@ class Localizer:
                 if (E[i, j] > energy_thr and C[i, j] > COERENCE_TRASHOLD): 
                     candidate_mask[i, j] = 1
         
-        #visualize_candidate_mask(image, candidate_mask, STRIDE, PATCH_SIZE)
+        # visualize_candidate_mask(image, candidate_mask, STRIDE, PATCH_SIZE)
 
         # create cluster
         visited = np.zeros((n_y, n_x), dtype=bool)
@@ -129,7 +129,7 @@ class Localizer:
             x1 = x0 + PATCH_SIZE
             best_cluster_mask[y0:y1, x0:x1] = 255
 
-        #visualize_best_cluster_mask(best_cluster_mask, scale=0.5)
+        # visualize_best_cluster_mask(best_cluster_mask, scale=0.5)
 
         # find a bbox for the best cluster mask
         contours, _ = cv2.findContours(best_cluster_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -138,7 +138,7 @@ class Localizer:
         box = cv2.boxPoints(rect)
         box = np.int32(box)
 
-        #visualize_best_cluster_bbox(image, box)
+        # visualize_best_cluster_bbox(image, box)
         
 
         return rect
