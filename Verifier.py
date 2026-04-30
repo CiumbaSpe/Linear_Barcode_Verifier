@@ -158,7 +158,13 @@ class Verifier:
 
         
 
-        return Rmin, min_edge_contrast, contrast, modulation, defects
+        return {
+            "min_reflectance": float(Rmin),
+            "min_edge_contrast": float(min_edge_contrast),
+            "contrast": float(contrast),
+            "modulation": float(modulation),
+            "defects": float(defects),
+        }
 
     def verify_from_rect(self, rect, gray_image):
        
@@ -192,11 +198,7 @@ class Verifier:
 
         #visualize_image(roi)
 
-        min_reflectances = []
-        min_edge_contrasts = []
-        contrasts = []
-        modulations = []
-        defects = []
+        scanlines = []
         ys = np.linspace(0, roi.shape[0] - 1, N_PROFILES, dtype=np.int32)
 
         for y in ys:
@@ -205,13 +207,16 @@ class Verifier:
 
             # visualize_profile(profile)
 
-            min_reflectance, min_edge_contrast, contrast, modulation, defect = self.verify_profile(profile)
-            min_reflectances.append(min_reflectance)
-            min_edge_contrasts.append(min_edge_contrast)
-            contrasts.append(contrast)
-            modulations.append(modulation)
-            defects.append(defect)
+            metrics = self.verify_profile(profile)
+            scanlines.append(metrics)
 
-        return float(np.mean(min_reflectances)), float(np.mean(min_edge_contrasts)), float(np.mean(contrasts)), float(np.mean(modulations)), float(np.mean(defects))
+        mean_metrics = {}
+        for key in scanlines[0]:
+            mean_metrics[key] = float(np.mean([metrics[key] for metrics in scanlines]))
+
+        return {
+            "mean": mean_metrics,
+            "scanlines": scanlines,
+        }
 
         
