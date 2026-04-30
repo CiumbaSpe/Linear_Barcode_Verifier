@@ -11,7 +11,7 @@ def single_test():
 
     gray, preprocessed = preproc.process(IMAGE_PATH)
     rect = localizer.localize(preprocessed)
-    contrast, modulation = verifier.verify_from_rect(rect, gray)
+    contrast, modulation, defects = verifier.verify_from_rect(rect, gray)
 
 
     print(f"Image: {IMAGE_PATH}")
@@ -20,6 +20,7 @@ def single_test():
     print(f"Normalize contrast: {NORMALIZE_CONTRAST}")
     print(f"Contrast: {contrast}")
     print(f"Modulation: {modulation}")
+    print(f"Defects: {defects}")
 
 def full_test():
     preproc = Preproc(denoise=DENOISE, normalize_contrast=NORMALIZE_CONTRAST)
@@ -30,12 +31,12 @@ def full_test():
     for image_path in sorted(DATA_DIR.glob("*.BMP")):
         gray, preprocessed = preproc.process(image_path)
         rect = localizer.localize(preprocessed)
-        contrast, modulation = verifier.verify_from_rect(rect, gray)
-        rows.append([image_path.name, contrast, modulation])
+        contrast, modulation, defects = verifier.verify_from_rect(rect, gray)
+        rows.append([image_path.name, contrast, modulation, defects])
 
     with open("results.csv", "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["image_name", "contrast", "modulation"])
+        writer.writerow(["image_name", "contrast", "modulation", "defects"])
         writer.writerows(rows)
 
 def main():

@@ -23,6 +23,7 @@ class Verifier:
 
         ### --- CONTRAST METRIC ---
         # Get contrast, in percentage
+        # profile pct is the profile where values are converted from 0-255 to percentage 0-100
         profile_pct = profile.astype(np.float32).copy() * 100.0 / 255.0
         Rmin = np.min(profile_pct)
         Rmax = np.max(profile_pct)
@@ -53,6 +54,34 @@ class Verifier:
             end += 1
 
         runs.append(Run(current_value, current_length, start, end))
+
+        # ---- Evaluating DEFECT METRIC ----
+        
+        # i use runs to evaluate defect because i need to know where lines start and finish 
+        # but i use the values coming from profile_pct to evaluate ern. 
+        ern_max = 0
+        TRIM = 5
+        for run in runs:
+            # ERN: Element Reflectance Non-Uniformity
+            # ERNi = Rmax,i - Rmin,i
+            
+            # i have to consider that the start and the end of the run includes also the pixels
+            # where the edge is blurred so it is like the two bars are mixed. So i also trim of 5 pixels
+            
+
+            start = run.start + TRIM
+            end = run.end - TRIM
+
+            if (end - start <= 0): 
+                continue
+            
+            rmax = np.max(profile_pct[start:end])
+            rmin = np.min(profile_pct[start:end])
+            ern = rmax - rmin
+            if (ern > ern_max): ern_max = ern 
+
+        # multiplied by 100 because it is a fraction of two pct and i want a pct at the end
+        defects = ern_max / contrast * 100
 
         # clean runs, there might be some noise 
         # (the first and last lines might be cropped to much or inaccurate)
@@ -131,7 +160,7 @@ class Verifier:
 
         
 
-        return contrast, modulation
+        return contrast, modulation, defects
 
     def verify_from_rect(self, rect, gray_image):
        
@@ -163,10 +192,11 @@ class Verifier:
         y1 = int(min(gray_image.shape[0], center_y + short_side / 2))
         roi = rotated[y0:y1, x0:x1]
 
-        visualize_image(roi)
+        #visualize_image(roi)
 
         contrasts = []
         modulations = []
+        defects = []
         ys = np.linspace(0, roi.shape[0] - 1, N_PROFILES, dtype=np.int32)
 
         for y in ys:
@@ -175,10 +205,11 @@ class Verifier:
 
             # visualize_profile(profile)
 
-            contrast, modulation = self.verify_profile(profile)
+            contrast, modulation, defect = self.verify_profile(profile)
             contrasts.append(contrast)
             modulations.append(modulation)
+            defects.append(defect)
 
-        return float(np.mean(contrasts)), float(np.mean(modulations))
+        return float(np.mean(contrasts)), float(np.mean(modulations)), float(np.mean(defects))
 
         
