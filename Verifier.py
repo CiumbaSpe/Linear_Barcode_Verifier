@@ -66,15 +66,13 @@ class Verifier:
             # ERNi = Rmax,i - Rmin,i
             
             # i have to consider that the start and the end of the run includes also the pixels
-            # where the edge is blurred so it is like the two bars are mixed. So i also trim of 5 pixels
-            
-
+            # where the edge is blurred so it is like the two bars are mixed. So i also trim of TRIM pixels
             start = run.start + TRIM
             end = run.end - TRIM
 
             if (end - start <= 0): 
                 continue
-            
+
             rmax = np.max(profile_pct[start:end])
             rmin = np.min(profile_pct[start:end])
             ern = rmax - rmin
@@ -160,7 +158,7 @@ class Verifier:
 
         
 
-        return contrast, modulation, defects
+        return Rmin, min_edge_contrast, contrast, modulation, defects
 
     def verify_from_rect(self, rect, gray_image):
        
@@ -194,6 +192,8 @@ class Verifier:
 
         #visualize_image(roi)
 
+        min_reflectances = []
+        min_edge_contrasts = []
         contrasts = []
         modulations = []
         defects = []
@@ -205,11 +205,13 @@ class Verifier:
 
             # visualize_profile(profile)
 
-            contrast, modulation, defect = self.verify_profile(profile)
+            min_reflectance, min_edge_contrast, contrast, modulation, defect = self.verify_profile(profile)
+            min_reflectances.append(min_reflectance)
+            min_edge_contrasts.append(min_edge_contrast)
             contrasts.append(contrast)
             modulations.append(modulation)
             defects.append(defect)
 
-        return float(np.mean(contrasts)), float(np.mean(modulations)), float(np.mean(defects))
+        return float(np.mean(min_reflectances)), float(np.mean(min_edge_contrasts)), float(np.mean(contrasts)), float(np.mean(modulations)), float(np.mean(defects))
 
         

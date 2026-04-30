@@ -11,13 +11,15 @@ def single_test():
 
     gray, preprocessed = preproc.process(IMAGE_PATH)
     rect = localizer.localize(preprocessed)
-    contrast, modulation, defects = verifier.verify_from_rect(rect, gray)
+    min_reflectance, min_edge_contrast, contrast, modulation, defects = verifier.verify_from_rect(rect, gray)
 
 
     print(f"Image: {IMAGE_PATH}")
     print(f"Shape: {gray.shape}")
     print(f"Denoise: {DENOISE}")
     print(f"Normalize contrast: {NORMALIZE_CONTRAST}")
+    print(f"Min reflectance: {min_reflectance}")
+    print(f"Min edge contrast: {min_edge_contrast}")
     print(f"Contrast: {contrast}")
     print(f"Modulation: {modulation}")
     print(f"Defects: {defects}")
@@ -31,12 +33,12 @@ def full_test():
     for image_path in sorted(DATA_DIR.glob("*.BMP")):
         gray, preprocessed = preproc.process(image_path)
         rect = localizer.localize(preprocessed)
-        contrast, modulation, defects = verifier.verify_from_rect(rect, gray)
-        rows.append([image_path.name, contrast, modulation, defects])
+        min_reflectance, min_edge_contrast, contrast, modulation, defects = verifier.verify_from_rect(rect, gray)
+        rows.append([image_path.name, min_reflectance, min_edge_contrast, contrast, modulation, defects])
 
     with open("results.csv", "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["image_name", "contrast", "modulation", "defects"])
+        writer.writerow(["image_name", "min_reflectance", "min_edge_contrast", "contrast", "modulation", "defects"])
         writer.writerows(rows)
 
 def main():
